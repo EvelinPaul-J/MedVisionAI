@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Doctor Portal — RetinaReach AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🩺 RetinaReach AI — Doctor Portal</div>
+  <nav><a href="/">Home</a><a href="/history.html">Patient History</a></nav>
+</header>
+
+<div class="container">
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <h3 style="margin:0;">Patients Requiring Review</h3>
+      <div class="status-panel" id="summaryCounts" style="margin:0;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:10px;">
+      <label>Filter</label>
+      <select id="statusFilter" style="width:220px;" onchange="loadScreenings()">
+        <option value="pending">Pending Review</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="rejected">Rejected / False Positive</option>
+        <option value="needs_review">Needs Further Examination</option>
+        <option value="">All</option>
+      </select>
+    </div>
+    <table>
+      <thead><tr><th>Screening</th><th>Patient</th><th>DR Assessment</th><th>Risk</th><th>Confidence</th><th>Status</th><th></th></tr></thead>
+      <tbody id="screeningRows"></tbody>
+    </table>
+  </div>
+
+  <!-- Detail modal-ish panel -->
+  <div class="card" id="detailPanel" style="display:none;">
+    <h3>Screening Detail</h3>
+    <div class="result-grid">
+      <div><strong>Original</strong><img id="d_orig" class="preview"></div>
+      <div><strong>AI Evidence Heatmap</strong><img id="d_heat" class="preview"></div>
+    </div>
+    <p><strong>Assessment:</strong> <span id="d_severity"></span> — <span id="d_risk" class="badge"></span></p>
+    <p><strong>Confidence:</strong> <span id="d_conf"></span></p>
+    <ul class="evidence-list" id="d_evidence"></ul>
+    <div>
+      <label>Doctor Review</label>
+      <select id="d_reviewSelect">
+        <option value="confirmed">Confirmed</option>
+        <option value="needs_review">Needs Further Examination</option>
+        <option value="rejected">False Positive / Rejected</option>
+      </select>
+      <textarea id="d_notes" placeholder="Notes (optional)" style="margin-top:8px;"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn success" onclick="submitReview()">Save Review</button>
+      <a class="btn secondary" id="d_reportLink" target="_blank">📄 View Report</a>
+      <button class="btn secondary" onclick="closeDetail()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+<script>
+let currentScreeningId = null;
+
+async function loadScreenings() {
+  const status = document.getElementById("statusFilter").value;
+  const q = status ? `?status=${status}` : "";
+  const rows = await apiGet(`/api/screening${q}`);
+  const tbody = document.getElementById("screeningRows");
+  tbody.innerHTML = "";
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.screening_id}</td>
+      <td>${r.patient_id}</td>
+      <td>${r.dr_severity || "-"}</td>
+      <td><span class="badge ${riskBadgeClass(r.risk_level)}">${(r.risk_level||"-").toUpperCase()}</span></td>
+      <td>${r.confidence ? r.confidence + "%" : "-"}</td>
+      <td>${r.doctor_status}</td>
+      <td><button class="btn secondary" onclick="openDetail('${r.screening_id}')">Review</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  const all = await apiGet(`/api/screening`);
+  const urgent = all.filter(r => r.risk_level === "urgent").length;
+  const priority = all.filter(r => r.risk_level === "priority").length;
+  const routine = all.filter(r => r.risk_level === "routine").length;
+  document.getElementById("summaryCounts").innerHTML = `
+    <div class="status-item">🔴 Urgent: <strong>${urgent}</strong></div>
+    <div class="status-item">🟠 Priority: <strong>${priority}</strong></div>
+    <div class="status-item">🟢 Routine: <strong>${routine}</strong></div>`;
+}
+
+async function openDetail(id) {
+  currentScreeningId = id;
+  const s = await apiGet(`/api/screening/${id}`);
+  document.getElementById("detailPanel").style.display = "block";
+  const origName = s.original_image_path.split(/[\\/]/).pop();
+  document.getElementById("d_orig").src = `/media/${origName}`;
+  if (s.heatmap_image_path) {
+    document.getElementById("d_heat").src = `/media/${s.heatmap_image_path.split(/[\\/]/).pop()}`;
+  }
+  document.getElementById("d_severity").textContent = s.dr_severity || "-";
+  const badge = document.getElementById("d_risk");
+  badge.textContent = (s.risk_level || "-").toUpperCase();
+  badge.className = "badge " + riskBadgeClass(s.risk_level);
+  document.getElementById("d_conf").textContent = s.confidence ? s.confidence + "%" : "-";
+  const ul = document.getElementById("d_evidence");
+  ul.innerHTML = "";
+  if (s.lesion_summary) {
+    JSON.parse(s.lesion_summary).evidence.forEach(line => {
+      const li = document.createElement("li"); li.textContent = "• " + line; ul.appendChild(li);
+    });
+  }
+  document.getElementById("d_reportLink").href = `/api/reports/${id}`;
+  document.getElementById("detailPanel").scrollIntoView({behavior:"smooth"});
+}
+
+async function submitReview() {
+  const status = document.getElementById("d_reviewSelect").value;
+  const notes = document.getElementById("d_notes").value;
+  await apiPostJSON(`/api/screening/${currentScreeningId}/review`, { doctor_status: status, doctor_notes: notes });
+  toast("Review saved");
+  closeDetail();
+  loadScreenings();
+}
+
+function closeDetail() {
+  document.getElementById("detailPanel").style.display = "none";
+}
+
+loadScreenings();
+</script>
+</body>
+</html>

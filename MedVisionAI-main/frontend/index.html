@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RetinaReach AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🩺 RetinaReach AI</div>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/history.html">Patient History</a>
+    <a href="/doctor.html">Doctor Portal</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="hero">
+    <h1>RetinaReach AI</h1>
+    <p class="tagline" data-i18n="tagline">Early Eye Screening. Anywhere. Offline.</p>
+  </div>
+
+  <div class="btn-row">
+    <a class="btn" href="/screening.html" data-i18n="start">🟢 Start Screening</a>
+    <a class="btn secondary" href="/doctor.html" data-i18n="doctor">👨‍⚕️ Doctor Login</a>
+    <a class="btn secondary" href="/history.html" data-i18n="history">🧑‍⚕️ Patient History</a>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <strong>Language</strong>
+      <select id="langSelect" style="width:auto;">
+        <option value="en">English</option>
+        <option value="ta">தமிழ்</option>
+        <option value="hi">हिन्दी</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <strong id="connStatus"><span class="dot green"></span> Checking connection…</strong>
+    <div class="status-panel">
+      <div class="status-item"><span class="dot green"></span> AI Screening — Available offline</div>
+      <div class="status-item"><span class="dot green"></span> Patient Records — Available offline</div>
+      <div class="status-item"><span class="dot green"></span> Report Generation — Available offline</div>
+      <div class="status-item"><span class="dot amber"></span> Specialist Sync — Needs internet</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <strong>How it works</strong>
+    <p style="color:var(--muted); font-size:0.92rem; line-height:1.6;">
+      Register the patient → capture / upload the fundus image → the app checks image quality →
+      the whole retina is analyzed for lesion evidence → an explainable, evidence-backed screening
+      result and referral report are generated — all running on this device, no internet required.
+    </p>
+  </div>
+
+  <p class="footer-note">AI-assisted screening only — not a substitute for clinical diagnosis.</p>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

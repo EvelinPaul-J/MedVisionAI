@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.env
+backend/data/retinareach.db
+backend/data/dataset/
+backend/uploads/*
+!backend/uploads/.gitkeep
+*.h5
+*.keras
+*.pth
+*.pt
+*.onnx

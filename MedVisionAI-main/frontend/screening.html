@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Screening — RetinaReach AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+.step-track{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}.step-pill{text-align:center;padding:9px 6px;border-radius:10px;background:#eef3f8;color:#64748b;font-size:.78rem;font-weight:700}.step-pill.active{background:#1f3c88;color:#fff}.step-pill.done{background:#dff5e8;color:#167043}.capture-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.capture-card{border:1px solid #dbe4ee;border-radius:14px;padding:18px;background:#fbfdff}.camera-panel{display:none;margin-top:16px;border:1px solid #cfdceb;border-radius:14px;padding:14px;background:#f6f9fd}.camera-panel video{display:block;width:100%;min-height:280px;max-height:520px;object-fit:contain;background:#07111f;border-radius:10px}.camera-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.camera-select{width:100%;margin-top:10px}.camera-note{font-size:.82rem;color:var(--muted);margin-top:9px;line-height:1.5}.preview-wrap{margin-top:14px}.preview{max-width:100%;max-height:440px;object-fit:contain;border-radius:10px;border:1px solid #dbe4ee;background:#f7fafc}.hidden{display:none!important}.processing-steps{display:grid;gap:10px;max-width:560px;margin:20px auto;text-align:left}.processing-item{padding:12px 14px;border-radius:10px;background:#f3f6fa;color:#667085}.processing-item.active{background:#eaf0ff;color:#1f3c88;font-weight:700}.processing-item.done{background:#e9f8ef;color:#187346}.result-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}@media(max-width:760px){.capture-grid{grid-template-columns:1fr}.step-track{grid-template-columns:1fr 1fr}.step-pill:last-child{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="brand">🩺 RetinaReach AI</div><nav><a href="/">Home</a><a href="/history.html">Patient History</a><a href="/doctor.html">Doctor Portal</a></nav></header>
+<div class="container">
+  <div class="step-track">
+    <div class="step-pill active" id="pill-1">1. Patient</div><div class="step-pill" id="pill-2">2. Capture</div><div class="step-pill" id="pill-3">3. Quality Check</div><div class="step-pill" id="pill-4">4. AI Analysis</div><div class="step-pill" id="pill-5">5. Result</div>
+  </div>
+
+  <section class="card" id="step1">
+    <h3>Patient Details</h3>
+    <div style="margin-bottom:14px"><label>Existing Patient ID (optional)</label><div style="display:flex;gap:10px"><input id="existingId" placeholder="e.g. P1A2B3C4"><button class="btn secondary" onclick="loadExisting()">Load</button></div></div>
+    <p style="color:var(--muted);font-size:.85rem">— or register a new patient —</p>
+    <div class="form-grid"><div><label>Full Name</label><input id="p_name" placeholder="Patient name"></div><div><label>Age</label><input id="p_age" type="number" min="1" max="120" placeholder="Age"></div><div><label>Sex</label><select id="p_sex"><option>Female</option><option>Male</option><option>Other</option></select></div><div><label>Diabetes Type</label><select id="p_dtype"><option>Type 2</option><option>Type 1</option><option>Gestational</option><option>Pre-diabetic</option></select></div><div><label>Duration with Diabetes (years)</label><input id="p_duration" type="number" min="0" step="0.5" placeholder="e.g. 6"></div><div><label>HbA1c % (if available)</label><input id="p_hba1c" type="number" min="0" max="30" step="0.1" placeholder="Optional"></div></div>
+    <div class="btn-row"><button class="btn" onclick="registerPatient()">Register &amp; Continue →</button></div>
+  </section>
+
+  <section class="card" id="step2" style="display:none">
+    <h3>Fundus Image Capture</h3><p style="color:var(--muted);font-size:.9rem">Patient: <strong id="activePatientLabel"></strong></p>
+    <div class="capture-grid">
+      <div class="capture-card"><h4 style="margin-top:0">📷 Fundus Camera / Webcam</h4><p style="color:var(--muted);font-size:.85rem">Use the connected camera. The browser will ask for camera permission.</p><button class="btn" type="button" onclick="openCamera()">Open Camera</button><select id="cameraSelect" class="camera-select" style="display:none"></select><div class="camera-actions"><button class="btn secondary" type="button" id="refreshCameraBtn" onclick="refreshCameraList()" style="display:none">Refresh Cameras</button></div></div>
+      <div class="capture-card"><h4 style="margin-top:0">🖼️ Dataset / Saved Image</h4><p style="color:var(--muted);font-size:.85rem">Choose any fundus JPG, PNG or WEBP image, including your dataset image.</p><button class="btn secondary" type="button" onclick="document.getElementById('fileInput').click()">Choose Image</button><input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="onFileSelected(event)"><div id="fileName" class="camera-note">No image selected.</div></div>
+    </div>
+    <div class="camera-panel" id="cameraPanel"><video id="cameraVideo" autoplay playsinline muted></video><div class="camera-actions"><button class="btn" type="button" id="captureBtn" onclick="captureCameraFrame()" disabled>⭕ Capture Image</button><button class="btn secondary" type="button" onclick="closeCamera()">Close Camera</button></div><div class="camera-note" id="cameraNote">Waiting for camera…</div></div>
+    <canvas id="captureCanvas" class="hidden"></canvas><div class="preview-wrap"><img id="previewImg" class="preview" style="display:none" alt="Selected fundus image"></div>
+    <div class="btn-row"><button class="btn" id="analyzeBtn" onclick="startAnalysis()" disabled>Run Quality Check + AI Analysis →</button></div>
+  </section>
+
+  <section class="card" id="stepProcessing" style="display:none;text-align:center">
+    <div class="spinner"></div><h3 id="processingTitle">Processing image…</h3><p id="processingText" style="color:var(--muted)">Please wait.</p>
+    <div class="processing-steps"><div id="proc1" class="processing-item active">1. Checking image quality</div><div id="proc2" class="processing-item">2. Analyzing retina evidence</div><div id="proc3" class="processing-item">3. Preparing explainable result</div></div>
+  </section>
+
+  <section class="card" id="stepQualityFail" style="display:none"><h3>Image could not be analyzed</h3><p id="qualityFailMsg" style="color:var(--muted)"></p><div class="btn-row"><button class="btn" onclick="resetCapture()">Choose / Capture Again</button></div></section>
+
+  <section class="card" id="stepResult" style="display:none">
+    <h3>AI-Assisted Screening Result</h3>
+    <div class="result-grid"><div><strong>Original Image</strong><img id="origImg" class="preview"></div><div><strong>Evidence Heatmap</strong><img id="heatImg" class="preview"><p style="font-size:.78rem;color:var(--muted)">Heatmap highlights image regions used by the explainability layer.</p></div></div>
+    <div class="card" style="background:#f7faff;margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><div style="font-size:.8rem;color:var(--muted)">SCREENING ASSESSMENT</div><div style="font-size:1.35rem;font-weight:700" id="severityText">—</div></div><span class="badge" id="riskBadge">—</span></div><p style="margin:10px 0 0">Model confidence: <strong id="confidenceText">—</strong></p></div>
+    <div style="margin-top:16px"><strong>Quality Check</strong><div id="qualitySummary" class="status-panel"></div></div>
+    <div style="margin-top:16px"><strong>Why this result? (Evidence)</strong><ul class="evidence-list" id="evidenceList"></ul></div>
+    <div style="margin-top:10px"><strong>Recommendation</strong><p id="recommendationText" style="color:var(--muted)"></p></div>
+    <div class="result-actions"><button class="btn success" onclick="downloadReport()">📄 Generate PDF Report</button><button class="btn secondary" onclick="markSynced()">🔄 Sync Now</button><a class="btn secondary" href="/screening.html">➕ New Screening</a></div>
+    <p style="font-size:.78rem;color:var(--muted)">AI-assisted screening only — not a substitute for clinical diagnosis.</p>
+  </section>
+</div>
+<script src="/static/js/app.js"></script>
+<script>
+let activePatientId=null,activeScreeningId=null,selectedFile=null,cameraStream=null,cameraDevices=[];
+const $=id=>document.getElementById(id);
+function setStep(n){['step1','step2','stepProcessing','stepQualityFail','stepResult'].forEach(id=>$(id).style.display='none');for(let i=1;i<=5;i++){const p=$('pill-'+i);p.classList.remove('active','done');if(i<n)p.classList.add('done');if(i===n)p.classList.add('active')}const map={1:'step1',2:'step2',3:'stepProcessing',4:'stepProcessing',5:'stepResult'};$(map[n]).style.display='block'}
+async function loadExisting(){const id=$('existingId').value.trim();if(!id)return toast('Enter a patient ID first');try{const p=await apiGet('/api/patients/'+encodeURIComponent(id));activePatientId=p.patient_id;$('activePatientLabel').textContent=`${p.name} (${p.patient_id})`;toast('Patient loaded');setStep(2)}catch(e){toast('Patient not found')}}
+async function registerPatient(){const name=$('p_name').value.trim(),age=parseInt($('p_age').value,10);if(!name||!age)return toast('Enter patient name and age');const body={name,age,sex:$('p_sex').value,diabetes_type:$('p_dtype').value,diabetes_duration_years:parseFloat($('p_duration').value||0),hba1c:$('p_hba1c').value?parseFloat($('p_hba1c').value):null};try{const res=await apiPostJSON('/api/patients',body);activePatientId=res.patient_id;$('activePatientLabel').textContent=`${name} (${res.patient_id})`;toast('Patient registered');setStep(2)}catch(e){toast('Could not register patient: '+cleanError(e))}}
+function cleanError(e){try{const j=JSON.parse(e.message);return j.detail||e.message}catch{return e?.message||'Unknown error'}}
+function setSelectedFile(file){if(!file)return;if(!file.type.startsWith('image/'))return toast('Please choose a JPG, PNG or WEBP image');selectedFile=file;$('fileName').textContent=file.name;$('previewImg').src=URL.createObjectURL(file);$('previewImg').style.display='block';$('analyzeBtn').disabled=false;closeCamera()}
+function onFileSelected(e){setSelectedFile(e.target.files[0])}
+async function refreshCameraList(){
+  if(!navigator.mediaDevices?.enumerateDevices) return;
+  const devices=await navigator.mediaDevices.enumerateDevices();
+  cameraDevices=devices.filter(d=>d.kind==='videoinput');
+  const sel=$('cameraSelect'); sel.innerHTML='';
+  cameraDevices.forEach((d,i)=>{const o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||`Camera ${i+1}`;sel.appendChild(o)});
+  if(cameraDevices.length){
+    const preferred=cameraDevices.find(d=>/fundus|usb|external|capture|camera/i.test(d.label||''));
+    if(preferred) sel.value=preferred.deviceId;
+    sel.style.display='block'; $('refreshCameraBtn').style.display='inline-block';
+    $('cameraNote').textContent=`${cameraDevices.length} camera(s) detected. Select the fundus/USB camera if listed, then wait for the live image.`;
+  } else $('cameraNote').textContent='No webcam/fundus camera is visible to Chrome. If your device uses proprietary software, export the fundus image as JPG/PNG and use Choose Image.';
+}
+
+async function openCamera(){if(!window.isSecureContext && !['localhost','127.0.0.1'].includes(location.hostname))return toast('Open the app from http://127.0.0.1:8000');if(!navigator.mediaDevices?.getUserMedia)return toast('Browser camera access is unavailable. Use image upload.');try{closeCamera();$('cameraPanel').style.display='block';$('cameraNote').textContent='Requesting camera permission…';const permission=await navigator.mediaDevices.getUserMedia({video:true,audio:false});permission.getTracks().forEach(t=>t.stop());await refreshCameraList();if(!cameraDevices.length)throw new Error('No camera was exposed to the browser.');const selected=$('cameraSelect').value||cameraDevices[0].deviceId;await startSelectedCamera(selected)}catch(e){console.error(e);$('cameraNote').textContent='Camera could not be opened. If Windows Camera shows video, check Chrome camera permission for this page and select the correct camera above.';toast('Camera could not be opened')}}
+async function startSelectedCamera(deviceId){
+  if(!deviceId) throw new Error('No camera selected');
+  if(cameraStream) cameraStream.getTracks().forEach(t=>t.stop());
+  const video=$('cameraVideo'); $('captureBtn').disabled=true;
+  $('cameraNote').textContent='Starting selected camera…';
+  try{
+    cameraStream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:deviceId},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30}},audio:false});
+  }catch(err){
+    cameraStream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:deviceId}},audio:false});
+  }
+  video.srcObject=cameraStream;
+  await new Promise((resolve,reject)=>{
+    let done=false;
+    const finish=()=>{if(done)return;done=true;clearTimeout(timer);resolve()};
+    const timer=setTimeout(()=>{if(video.videoWidth>0)finish();else reject(new Error('Camera video did not start'))},10000);
+    video.onloadedmetadata=finish; video.onloadeddata=finish; video.oncanplay=finish;
+  });
+  await video.play();
+  if(video.videoWidth<=0) throw new Error('Camera has no video frame');
+  $('captureBtn').disabled=false;
+  $('cameraNote').textContent=`Camera ready — ${video.videoWidth}×${video.videoHeight}. Position the retina image, then capture.`;
+}
+
+$('cameraSelect').addEventListener('change',async e=>{try{await startSelectedCamera(e.target.value)}catch{toast('Could not switch camera')}});
+async function captureCameraFrame(){const video=$('cameraVideo');if(!cameraStream||video.readyState<2||video.videoWidth<2)return toast('Camera is still starting — wait a moment');const canvas=$('captureCanvas')||document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);canvas.toBlob(blob=>{if(!blob)return toast('Could not capture image');setSelectedFile(new File([blob],`fundus-camera-${Date.now()}.jpg`,{type:'image/jpeg'}));toast('Fundus image captured successfully')},'image/jpeg',0.95)}
+function closeCamera(){if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null}if($('cameraVideo'))$('cameraVideo').srcObject=null;if($('cameraPanel'))$('cameraPanel').style.display='none';if($('captureBtn'))$('captureBtn').disabled=true}
+function updateProc(step){for(let i=1;i<=3;i++)$('proc'+i).className='processing-item '+(i<step?'done':i===step?'active':'')}
+async function startAnalysis(){
+  if(!activePatientId)return toast('Register or load a patient first');
+  if(!selectedFile)return toast('Choose or capture a fundus image first');
+  $('analyzeBtn').disabled=true;
+  setStep(3); updateProc(1); $('processingTitle').textContent='Quality Check';
+  $('processingText').textContent='Checking focus, brightness and retinal field coverage…';
+  await new Promise(r=>setTimeout(r,450));
+  setStep(4); updateProc(2); $('processingTitle').textContent='AI Analysis';
+  $('processingText').textContent='Uploading image and analyzing retinal evidence…';
+  const fd=new FormData(); fd.append('patient_id',activePatientId); fd.append('file',selectedFile,selectedFile.name||'fundus.jpg');
+  try{
+    const res=await apiPostForm('/api/screening/upload',fd);
+    if(!res || !res.screening_id) throw new Error('Server returned an invalid screening response');
+    activeScreeningId=res.screening_id; updateProc(3);
+    $('processingText').textContent='Preparing explainable result…';
+    await new Promise(r=>setTimeout(r,350));
+    await renderResult(res);
+  }catch(e){
+    console.error('SCREENING ERROR',e);
+    setStep(2); $('analyzeBtn').disabled=false;
+    toast('Analysis failed: '+cleanError(e));
+  }
+}
+async function renderResult(res){setStep(5);const r=res.result;if(!r)return showQualityFailure(res);$('severityText').textContent=r.dr_severity;const badge=$('riskBadge');badge.textContent=(r.risk_level||'review').toUpperCase();badge.className='badge '+riskBadgeClass(r.risk_level);$('confidenceText').textContent=(r.confidence??0)+'%';$('recommendationText').textContent=r.recommendation||'Clinical review is recommended.';const q=res.quality||{};$('qualitySummary').innerHTML=`<div class="status-item">Focus: ${q.focus??0}%</div><div class="status-item">Brightness: ${q.brightness??0}%</div><div class="status-item">Field coverage: ${q.field_coverage??0}%</div><div class="status-item">Overall quality: ${q.overall_score??0}% — ${q.status||''}</div>`;let evidence=[];try{evidence=JSON.parse(r.lesion_summary||'{}').evidence||[]}catch{}const ul=$('evidenceList');ul.innerHTML='';evidence.forEach(x=>{const li=document.createElement('li');li.textContent='• '+x;ul.appendChild(li)});await fetchAndShowImages()}
+function showQualityFailure(res){setStep(3);$('processingText').textContent=res.message||'Image could not be analyzed.'}
+async function fetchAndShowImages(){try{const s=await apiGet('/api/screening/'+encodeURIComponent(activeScreeningId));const orig=s.original_image_path?.split(/[\\/]/).pop();const heat=s.heatmap_image_path?.split(/[\\/]/).pop();if(orig)$('origImg').src='/media/'+encodeURIComponent(orig);if(heat)$('heatImg').src='/media/'+encodeURIComponent(heat)}catch(e){console.error(e)}}
+function downloadReport(){if(activeScreeningId)window.open('/api/reports/'+encodeURIComponent(activeScreeningId),'_blank')}
+async function markSynced(){try{await apiPostJSON('/api/screening/'+encodeURIComponent(activeScreeningId)+'/sync',{});toast('Screening synced')}catch(e){toast('Local record is retained')}}
+function resetCapture(){closeCamera();selectedFile=null;$('previewImg').style.display='none';$('analyzeBtn').disabled=true;$('fileInput').value='';$('fileName').textContent='No image selected.';setStep(2)}
+setStep(1);
+</script>
+</body></html>

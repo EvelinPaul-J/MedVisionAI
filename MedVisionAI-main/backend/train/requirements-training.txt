@@ -1,0 +1,5 @@
+torch>=2.4
+torchvision>=0.19
+scikit-learn>=1.5
+matplotlib>=3.9
+pandas>=2.2

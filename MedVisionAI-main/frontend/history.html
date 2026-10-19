@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Patient History — RetinaReach AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🩺 RetinaReach AI — Patient History</div>
+  <nav><a href="/">Home</a><a href="/doctor.html">Doctor Portal</a></nav>
+</header>
+
+<div class="container">
+  <div class="card">
+    <label>Search by Patient ID</label>
+    <div style="display:flex; gap:10px;">
+      <input id="searchId" placeholder="e.g. P1A2B3C4">
+      <button class="btn" onclick="search()">Search</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>All Patients</h3>
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Age/Sex</th><th>Diabetes Type</th><th>Registered</th><th></th></tr></thead>
+      <tbody id="patientRows"></tbody>
+    </table>
+  </div>
+
+  <div class="card" id="timelineCard" style="display:none;">
+    <h3>Screening Timeline — <span id="tl_name"></span></h3>
+    <table>
+      <thead><tr><th>Date</th><th>Screening ID</th><th>DR Assessment</th><th>Risk</th><th>Doctor Status</th><th></th></tr></thead>
+      <tbody id="timelineRows"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+<script>
+async function loadPatients() {
+  const list = await apiGet("/api/patients");
+  const tbody = document.getElementById("patientRows");
+  tbody.innerHTML = "";
+  list.forEach(p => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${p.patient_id}</td><td>${p.name}</td><td>${p.age} / ${p.sex}</td>
+      <td>${p.diabetes_type}</td><td>${p.created_at}</td>
+      <td><button class="btn secondary" onclick="showTimeline('${p.patient_id}')">View Timeline</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function search() {
+  const id = document.getElementById("searchId").value.trim();
+  if (!id) return loadPatients();
+  showTimeline(id);
+}
+
+async function showTimeline(id) {
+  try {
+    const p = await apiGet(`/api/patients/${id}`);
+    document.getElementById("timelineCard").style.display = "block";
+    document.getElementById("tl_name").textContent = `${p.name} (${p.patient_id})`;
+    const tbody = document.getElementById("timelineRows");
+    tbody.innerHTML = "";
+    p.screenings.forEach(s => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${s.created_at}</td><td>${s.screening_id}</td>
+        <td>${s.dr_severity || "-"}</td>
+        <td><span class="badge ${riskBadgeClass(s.risk_level)}">${(s.risk_level||"-").toUpperCase()}</span></td>
+        <td>${s.doctor_status}</td>
+        <td><a class="btn secondary" href="/api/reports/${s.screening_id}" target="_blank">Report</a></td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById("timelineCard").scrollIntoView({behavior:"smooth"});
+  } catch (e) {
+    toast("Patient not found");
+  }
+}
+
+loadPatients();
+</script>
+</body>
+</html>

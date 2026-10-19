@@ -1,0 +1,17 @@
+RETINAREACH AI — WINDOWS QUICK START
+
+1. Open this folder.
+2. Double-click run_app.bat.
+3. Wait for: Uvicorn running on http://127.0.0.1:8000
+4. Open Chrome and go to: http://127.0.0.1:8000
+5. Start Screening -> register patient -> Fundus Image Capture.
+6. Click Open Camera for a webcam/UVC fundus camera, OR choose a dataset image.
+7. Click Run Quality Check + AI Analysis.
+8. The app moves automatically through Quality Check -> AI Analysis -> Result.
+9. Generate PDF Report from the result screen.
+
+If a fundus camera is connected, it must be exposed to Windows/browser as a
+webcam/UVC video device. The app shows a camera selector when more than one
+camera is available.
+
+No separate React/Node build is required.
